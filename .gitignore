@@ -1,0 +1,21 @@
+# Entornos virtuales de Python
+venv/
+.venv/
+env/
+
+# Archivos temporales del sistema y Python
+__pycache__/
+*.pyc
+.DS_Store
+
+# Carpetas temporales de nuestros bots
+Boletas_EMOS_Temp/
+Boletas_MUNI_Temp/
+
+# Archivos finales generados (para no subir reportes ni boletas a internet)
+Boletas_EMOS.zip
+Boletas_MUNI.zip
+EMOS_Unidas.pdf
+MUNI_Unidas.pdf
+Reporte_*.xlsx
+*.pdf
