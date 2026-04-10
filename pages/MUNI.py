@@ -68,8 +68,10 @@ def consultar_muni(driver, wait, nomenclatura, periodo_buscado, carpeta_destino,
         time.sleep(3) # Damos tiempo a que cargue la tabla
 
         # --- TRADUCTOR DE FORMATO MUNI ---
-        # Convierte tu "2026/04" de Excel al formato raro "2026/ 4-01" de la Muni
         periodo_str = str(periodo_buscado).strip()
+        # Limpiador mágico: si hay un guion, lo transforma en barra
+        periodo_str = periodo_str.replace("-", "/")
+        
         if "/" in periodo_str:
             anio, mes = periodo_str.split("/")
             mes_entero = int(mes)
