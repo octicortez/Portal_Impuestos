@@ -167,9 +167,16 @@ if archivo_subido is not None:
 if st.session_state.proceso_terminado:
     st.success("✅ ¡Terminado!")
     col1, col2, col3 = st.columns(3)
+    
     with col1:
-        if os.path.exists("Boletas_EMOS.zip"): st.download_button("📦 Bajar .ZIP", data=open("Boletas_EMOS.zip", "rb"), file_name="Boletas_EMOS.zip", mime="application/zip")
+        if os.path.exists("Boletas_EMOS.zip"):
+            with open("Boletas_EMOS.zip", "rb") as f:
+                st.download_button("📦 Bajar .ZIP", data=f.read(), file_name="Boletas_EMOS.zip", mime="application/zip")
     with col2:
-        if os.path.exists("EMOS_Unidas.pdf"): st.download_button("🖨️ Bajar PDF", data=open("EMOS_Unidas.pdf", "rb"), file_name="EMOS_Unidas.pdf", mime="application/pdf")
+        if os.path.exists("EMOS_Unidas.pdf"):
+            with open("EMOS_Unidas.pdf", "rb") as f:
+                st.download_button("🖨️ Bajar PDF", data=f.read(), file_name="EMOS_Unidas.pdf", mime="application/pdf")
     with col3:
-        if os.path.exists("Reporte_EMOS.xlsx"): st.download_button("📊 Bajar Excel", data=open("Reporte_EMOS.xlsx", "rb"), file_name="Reporte_EMOS.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        if os.path.exists("Reporte_EMOS.xlsx"):
+            with open("Reporte_EMOS.xlsx", "rb") as f:
+                st.download_button("📊 Bajar Excel", data=f.read(), file_name="Reporte_EMOS.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
