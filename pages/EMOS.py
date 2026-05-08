@@ -118,79 +118,99 @@ if archivo_subido is not None:
     df = pd.read_excel(archivo_subido)
     st.write(f"Filas detectadas: {len(df)}")
     
-    if st.button("🚀 Iniciar Búsqueda EMOS", use_container_width=True):
+if st.button("🚀 Iniciar Búsqueda EMOS", use_container_width=True):
         carpeta_temp = "Boletas_EMOS_Temp"
         if os.path.exists(carpeta_temp): shutil.rmtree(carpeta_temp, ignore_errors=True)
         os.makedirs(carpeta_temp, exist_ok=True)
         for f_viejo in ["Boletas_EMOS.zip", "EMOS_Unidas.pdf"] + glob.glob("Reporte_EMOS*.xlsx"):
-            if os.path.exists(f_viejo): os.remove(f_viejo)
+            if os.path.exists(f_viejo): 
+                try:
+                    os.remove(f_viejo)
+                except:
+                    pass
                     
-        resultados = []; barra = st.progress(0); estado = st.empty()
+        resultados = []
+        barra = st.progress(0)
+        estado = st.empty()
         
         try:
             estado.text("Iniciando motor EMOS...")
-            chrome_options = Options(); chrome_options.add_argument("--window-size=1920,1080")
+            chrome_options = Options()
+            chrome_options.add_argument("--window-size=1920,1080")
+            
             if os.path.exists("/usr/bin/chromium"):
-                chrome_options.binary_location = "/usr/bin/chromium"; chrome_options.add_argument("--headless=new") 
-                chrome_options.add_argument("--no-sandbox"); chrome_options.add_argument("--disable-dev-shm-usage") 
+                chrome_options.binary_location = "/usr/bin/chromium"
+                chrome_options.add_argument("--headless=new") 
+                chrome_options.add_argument("--no-sandbox")
+                chrome_options.add_argument("--disable-dev-shm-usage") 
                 chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 servicio = Service("/usr/bin/chromedriver")
             else:
-                chrome_options.add_argument("--headless=new"); chrome_options.page_load_strategy = 'eager' 
+                chrome_options.add_argument("--headless=new")
+                chrome_options.page_load_strategy = 'eager' 
                 servicio = Service(ChromeDriverManager().install())
                 
-            # ... [configuración previa del driver] ...
+            driver = webdriver.Chrome(service=servicio, options=chrome_options)
+            driver.set_page_load_timeout(180)
+            wait = WebDriverWait(driver, 15)
 
-driver = webdriver.Chrome(service=servicio, options=chrome_options)
-driver.set_page_load_timeout(180)
-wait = WebDriverWait(driver, 15)
+            LIMITE_RECICLAJE = 15  
+            contador_consultas = 0
 
-LIMITE_RECICLAJE = 15  # Cada 15 consultas, reiniciamos Chrome
-contador_consultas = 0
+            for index, row in df.iterrows():
+                if pd.isna(row.iloc[0]): continue
+                
+                # 1. RECICLAJE DEL NAVEGADOR
+                if contador_consultas > 0 and contador_consultas % LIMITE_RECICLAJE == 0:
+                    estado.text(f"Liberando memoria RAM (consulta {contador_consultas})...")
+                    try:
+                        driver.quit() 
+                    except:
+                        pass
+                    time.sleep(2)
+                    driver = webdriver.Chrome(service=servicio, options=chrome_options)
+                    driver.set_page_load_timeout(180)
+                    wait = WebDriverWait(driver, 15)
+                
+                nomenclatura = row.iloc[0]
+                periodo = row.iloc[1] if len(row) > 1 else "-" 
+                
+                estado.text(f"Consultando [{index + 1}/{len(df)}]: {nomenclatura}...")
+                
+                # 2. LLAMADA A LA FUNCIÓN CORRECTA (EMOS)
+                resultado_actual = consultar_emos(driver, wait, nomenclatura, periodo, carpeta_temp, fecha_seleccionada)
+                resultados.append(resultado_actual)
+                
+                # 3. GUARDADO INCREMENTAL CORRECTO
+                pd.DataFrame(resultados).to_excel("Reporte_EMOS.xlsx", index=False)
+                
+                contador_consultas += 1
+                barra.progress(int(((index + 1) / len(df)) * 100))
 
-for index, row in df.iterrows():
-    if pd.isna(row.iloc[0]): continue
-    
-    # 1. Reciclaje del navegador para evitar colapso de RAM
-    if contador_consultas > 0 and contador_consultas % LIMITE_RECICLAJE == 0:
-        estado.text("Reciclando navegador para liberar memoria RAM...")
-        driver.quit() # Cerramos el Chrome gordo
-        time.sleep(2)
-        # Lo volvemos a abrir fresco
-        driver = webdriver.Chrome(service=servicio, options=chrome_options)
-        driver.set_page_load_timeout(180)
-        wait = WebDriverWait(driver, 15)
-    
-    nomenclatura = row.iloc[0]
-    periodo = row.iloc[1] if len(row) > 1 else "-" 
-    
-    estado.text(f"Consultando [{index + 1}/{len(df)}]: {nomenclatura}...")
-    
-    # Ejecutamos tu función de consulta original
-    resultado_actual = consultar_muni(driver, wait, nomenclatura, periodo, carpeta_temp, fecha_seleccionada)
-    resultados.append(resultado_actual)
-    
-    # 2. GUARDADO INCREMENTAL: Guardamos el reporte parcial en cada paso
-    pd.DataFrame(resultados).to_excel("Reporte_Parcial.xlsx", index=False)
-    
-    contador_consultas += 1
-    barra.progress(int(((index + 1) / len(df)) * 100))
-
-driver.quit() # Cierre final
-            
-            df_res = pd.DataFrame(resultados); df_res.to_excel("Reporte_EMOS.xlsx", index=False)
+            try:
+                driver.quit() 
+            except:
+                pass
+                
             estado.text("Uniendo PDFs...")
             pdfs = glob.glob(os.path.join(carpeta_temp, "*.pdf"))
             if pdfs:
                 fusionador = PdfWriter()
                 for p in pdfs: fusionador.append(p)
-                fusionador.write("EMOS_Unidas.pdf"); fusionador.close()
+                fusionador.write("EMOS_Unidas.pdf")
+                fusionador.close()
             
             shutil.make_archive("Boletas_EMOS", 'zip', carpeta_temp)
             st.session_state.proceso_terminado = True
-            shutil.rmtree(carpeta_temp, ignore_errors=True); estado.empty()
+            shutil.rmtree(carpeta_temp, ignore_errors=True)
+            estado.empty()
             
-        except Exception as e: st.error(f"Error: {e}")
+        except Exception as e: 
+            st.error(f"Error: {e}")
+            try:
+                driver.quit()
+            except:
+                pass
 
 if st.session_state.proceso_terminado:
     st.success("✅ ¡Terminado!")
